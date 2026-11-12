@@ -9,11 +9,6 @@ from sqlalchemy import select
 
 router = APIRouter(prefix="/movies", tags=["Movies"])
 
-movies = [
-    {"id": 1, "title": "Inception", "year": 2010},
-    {"id": 2, "title": "Interstellar", "year": 2014}
-]
-
 @router.get("")
 def get_movies(db: Session = Depends(get_db)):
     statement = select(Movie)
@@ -46,29 +41,54 @@ def create_movie(movie: MovieCreate, db: Session = Depends(get_db)):
     return new_movie
 
 @router.delete("/{movie_id}")
-def delete_movie(movie_id: int):
-    for movie in movies:
-        if movie["id"] == movie_id:
-            movies.remove(movie)
-            return {"message": "Movie deleted"}
+def delete_movie(movie_id: int, db: Session = Depends(get_db)):
+    movie = db.get(Movie, movie_id)
 
-    raise HTTPException(status_code=404, detail="Movie not found")
+    if movie is None:
+        raise HTTPException(
+            status_code=404, 
+            detail="Movie 
+        )
+    
+    db.delete(movie)
+    db.commit()
+
+    return {"message": "Movie deleted"}
+
 
 @router.put("/{movie_id}")
-def update_movie(movie_id: int, updated_movie: MovieCreate):
-    for movie in movies:
-        if movie["id"] == movie_id:
-            movie["title"] = updated_movie.title
-            movie["year"] = updated_movie.year
-            return movie
-    raise HTTPException(status_code=404, detail="Movie not found")
+def update_movie(movie_id: int, updated_movie: MovieCreate, db: Session = Depends(get_db)):
+    movie = db.get(Movie, movie_id)
+
+    if movie is None:
+        raise HTTPException(
+            status_code=404, 
+            detail="Movie not found"
+            )
+    movie.title = updated_movie.title
+    movie.year = updated_movie.year
+
+    db.commit()
+    db.refresh(movie)
+
+    return movie
 
 @router.patch("/{movie_id}")
-def patch_movie(movie_id: int, updated_movie: MovieUpdate):
-    for movie in movies:
-        if movie["id"] == movie_id:
-            changes = updated_movie.model_dump(exclude_unset=True)
-            movie.update(changes)
-            return movie
+def patch_movie(movie_id: int, updated_movie: MovieUpdate, db: Session = Depends(get_db)):
+    movie = db.get(Movie, movie_id)
 
-    raise HTTPException(status_code=404, detail="Movie not found")
+    if Movie is None:
+        raise HTTPException(
+            status_code=404, 
+            detail="Movie not found"
+            )
+
+    changes = updated_movie.model_dump(exclude_unset=True)
+
+    for field, value in changes.items():
+        setattr(movie, field, value)
+
+    db.commit()
+    db.refresh(movie)
+
+    return movie
